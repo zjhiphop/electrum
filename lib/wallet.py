@@ -56,12 +56,15 @@ from .plugins import run_hook
 from . import bitcoin
 from . import coinchooser
 from .synchronizer import Synchronizer
+from .lightning import LightningRPC
 from .verifier import SPV
 
 from . import paymentrequest
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .paymentrequest import InvoiceStore
 from .contacts import Contacts
+
+from .lightning import LightningWorker
 
 TX_STATUS = [
     _('Replaceable'),
@@ -1004,6 +1007,9 @@ class Abstract_Wallet(PrintError):
             self.verifier = SPV(self.network, self)
             self.synchronizer = Synchronizer(self, network)
             network.add_coroutines([self.verifier, self.synchronizer])
+            self.lightning = LightningRPC()
+            self.lightningworker = LightningWorker(lambda: self, lambda: network, lambda: network.config)
+            network.set_forever_coroutines([self.lightning, self.lightningworker])
         else:
             self.verifier = None
             self.synchronizer = None
@@ -1887,7 +1893,6 @@ class Multisig_Wallet(Deterministic_Wallet):
         # we need n place holders
         txin['signatures'] = [None] * self.n
         txin['num_sig'] = self.m
-
 
 wallet_types = ['standard', 'multisig', 'imported']
 

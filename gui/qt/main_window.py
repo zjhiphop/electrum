@@ -1874,6 +1874,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         console.updateNamespace({'wallet' : self.wallet,
                                  'network' : self.network,
                                  'plugins' : self.gui_object.plugins,
+                                 'lightning' : self.gui_object.lightning,
                                  'window': self})
         console.updateNamespace({'util' : util, 'bitcoin':bitcoin})
 

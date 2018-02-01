@@ -308,6 +308,9 @@ class Network(util.DaemonThread):
         # Resend unanswered requests
         requests = self.unanswered_requests.values()
         self.unanswered_requests = {}
+        if self.interface.ping_required():
+            params = [ELECTRUM_VERSION, PROTOCOL_VERSION]
+            await self.queue_request('server.version', params, self.interface)
         for request in requests:
             message_id = await self.queue_request(request[0], request[1])
             self.unanswered_requests[message_id] = request
@@ -717,6 +720,11 @@ class Network(util.DaemonThread):
         We distinguish by whether it is in self.interfaces.'''
         async with self.all_server_locks("connection down"):
             if server in self.disconnected_servers:
+                try:
+                    raise Exception("already disconnected " + server + " because " + repr(self.disconnected_servers[server]) + ". new reason: " + repr(reason))
+                except:
+                    traceback.print_exc()
+                    sys.exit(1)
                 return
             self.print_error("connection down", server)
             self.disconnected_servers[server] = reason
@@ -762,6 +770,10 @@ class Network(util.DaemonThread):
             interface.print_error(error or 'bad response')
             return
         index = params[0]
+        # Ignore unsolicited chunks
+        if index not in self.requested_chunks:
+            return
+        self.requested_chunks.remove(index)
         connect = interface.blockchain.connect_chunk(index, result)
         if not connect:
             await self.connection_down(interface.server, "could not connect chunk")
@@ -1114,11 +1126,14 @@ class Network(util.DaemonThread):
                 raise
         asyncio.ensure_future(job())
         run_future = asyncio.Future()
+        self.run_forever_coroutines()
         asyncio.ensure_future(self.run_async(run_future))
 
         loop.run_until_complete(run_future)
+        assert self.forever_coroutines_task.done()
         run_future.exception()
         self.print_error("run future result", run_future.result())
+        loop.close()
 
     async def run_async(self, future):
         try:

@@ -47,7 +47,7 @@ from electrum.util import UserCancelled, print_error
 # from electrum.wallet import Abstract_Wallet
 
 from .installwizard import InstallWizard, GoBack
-
+from electrum.lightning import LightningUI
 
 try:
     from . import icons_rc
@@ -92,6 +92,10 @@ class ElectrumGui:
         #network.add_jobs([DebugMem([Abstract_Wallet, SPV, Synchronizer,
         #                            ElectrumWindow], interval=5)])
         QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_X11InitThreads)
+        def setConsoleAndReturnLightning():
+            self.windows[0].wallet.lightning.setConsole(self.windows[0].console)
+            return self.windows[0].wallet.lightning
+        self.lightning = LightningUI(setConsoleAndReturnLightning)
         if hasattr(QtCore.Qt, "AA_ShareOpenGLContexts"):
             QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
         self.config = config
