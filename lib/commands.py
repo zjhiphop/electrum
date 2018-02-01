@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import queue
 import sys
 import datetime
 import copy
@@ -41,6 +42,7 @@ from .i18n import _
 from .transaction import Transaction, multisig_script
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .plugins import run_hook
+from .import lightning
 
 known_commands = {}
 
@@ -690,6 +692,18 @@ class Commands:
     def help(self):
         # for the python console
         return sorted(known_commands.keys())
+
+    @command("wn")
+    def lightning(self, lcmd, *args):
+        q = queue.Queue()
+        class FakeQtSignal:
+            def emit(self, data):
+                q.put(data)
+        class MyConsole:
+            newResult = FakeQtSignal()
+        self.wallet.lightning.setConsole(MyConsole())
+        lightning.lightningCall(self.wallet.lightning, lcmd)(*args)
+        return q.get()
 
 param_descriptions = {
     'privkey': 'Private key. Type \'?\' to get a prompt.',

@@ -71,15 +71,14 @@ XPUB_HEADERS = {
 
 class NetworkConstants:
     @classmethod
-    def set_simnet():
+    def set_simnet(cls):
         cls.TESTNET = True
         cls.ADDRTYPE_P2PKH = 0x3f
         cls.ADDRTYPE_P2SH = 0x7b
         cls.SEGWIT_HRP = "sb"
-        cls.HEADERS_URL = None
         cls.GENESIS = "683e86bd5c6d110d91b94b97137ba6bfe02dbbdb8e3dff722a669b5d69d77af6"
         cls.DEFAULT_PORTS = {'t':'50001', 's':'50002'}
-        cls.DEFAULT_SERVERS = { '127.0.0.1': DEFAULT_PORTS, }
+        cls.DEFAULT_SERVERS = { '127.0.0.1': cls.DEFAULT_PORTS, }
 
     @classmethod
     def set_mainnet(cls):

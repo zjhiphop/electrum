@@ -169,7 +169,7 @@ class DaemonThread(threading.Thread, PrintError):
         async def getFromQueueAndStart():
             jobs = await self.forever_coroutines_queue.get()
             await asyncio.gather(*[i.run(self.is_running) for i in jobs])
-            print("FOREVER JOBS DONE")
+            self.print_error("FOREVER JOBS DONE")
         self.forever_coroutines_task = asyncio.ensure_future(getFromQueueAndStart())
         return self.forever_coroutines_task
 

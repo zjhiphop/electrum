@@ -134,7 +134,9 @@ class Interface(util.PrintError):
                         await asyncio.sleep(1)
                         continue
                     except:
-                        if self.is_running(): traceback.print_exc()
+                        if self.is_running():
+                            traceback.print_exc()
+                            print("Previous exception from _save_certificate")
                         continue
                     break
                 if not self.is_running(): return
@@ -145,7 +147,7 @@ class Interface(util.PrintError):
                 writer.close()
         except OSError as e: # not ConnectionError because we need socket.gaierror too
             if self.is_running():
-                print(self.server, "Exception in _save_certificate", type(e))
+                self.print_error(self.server, "Exception in _save_certificate", type(e))
             return
         except TimeoutError:
             return
@@ -194,13 +196,13 @@ class Interface(util.PrintError):
                     context = get_ssl_context(cert_reqs=ssl.CERT_REQUIRED, ca_certs=ca_certs) if self.use_ssl else None
                     self.reader, self.writer = await asyncio.wait_for(self.conn_coro(context), 5)
             except TimeoutError:
-                print("TimeoutError after getting certificate successfully...")
+                self.print_error("TimeoutError after getting certificate successfully...")
                 raise
             except BaseException as e:
                 if self.is_running():
                     if not isinstance(e, OSError):
                         traceback.print_exc()
-                        print("Previous exception will now be reraised")
+                        self.print_error("Previous exception will now be reraised")
                 raise e
             if self.use_ssl and is_new:
                 self.print_error("saving new certificate for", self.host)
@@ -214,7 +216,7 @@ class Interface(util.PrintError):
             w.write(json.dumps(i).encode("ascii") + b"\n")
         await w.drain()
         if time.time() - starttime > 2.5:
-            print("send_all: sending is taking too long. Used existing connection: ", usedExisting)
+            self.print_error("send_all: sending is taking too long. Used existing connection: ", usedExisting)
             raise ConnectionError("sending is taking too long")
 
     def close(self):
@@ -279,7 +281,7 @@ class Interface(util.PrintError):
             await self.send_all([make_dict(*request)])
         except (SocksError, OSError, TimeoutError) as e:
             if type(e) is SocksError:
-                print(e)
+                self.print_error(e)
             await self.unsent_requests.put((prio, request))
             return False
         if self.debug:

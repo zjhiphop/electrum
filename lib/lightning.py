@@ -694,7 +694,13 @@ class LightningWorker(ForeverCoroutineJob):
         self.wallet = wallet
         self.network = network
         self.config = config
-        privateKeyHash = bitcoin.Hash(self.wallet().keystore.get_private_key([152,152,152,152], None)[0])
+        ks = self.wallet().keystore
+        assert hasattr(ks, "xprv"), "Wallet must have xprv, can't be e.g. imported"
+        xprv, xpub = bitcoin.bip32_private_derivation(ks.xprv, "m/", "m/152/152/152/152")
+        tupl = bitcoin.deserialize_xprv(xprv)
+        privKey = tupl[-1]
+        assert type(privKey) is type(bytes([]))
+        privateKeyHash = bitcoin.Hash(privKey)
 
         deser = bitcoin.deserialize_xpub(wallet().keystore.xpub)
         assert deser[0] == "p2wpkh", deser

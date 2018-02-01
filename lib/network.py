@@ -394,7 +394,7 @@ class Network(util.DaemonThread):
 
     async def start_interfaces(self):
         await self.start_interface(self.default_server)
-        print("started default server interface")
+        self.print_error("started default server interface")
         for i in range(self.num_server - 1):
             await self.start_random_interface()
 
@@ -459,16 +459,16 @@ class Network(util.DaemonThread):
                     async with self.restartLock:
                         # Restart the network defaulting to the given server
                         await self.stop_network()
-                        print("STOOOOOOOOOOOOOOOOOOOOOOOOOOPPED")
+                        self.print_error("STOOOOOOOOOOOOOOOOOOOOOOOOOOPPED")
                         self.default_server = server
                         async with self.all_server_locks("restart job"):
                             self.disconnected_servers = {}
                         await self.start_network(protocol, proxy)
                 except BaseException as e:
                     traceback.print_exc()
-                    print("exception from restart job")
+                    self.print_error("exception from restart job")
             if self.restartLock.locked():
-                print("NOT RESTARTING, RESTART IN PROGRESS")
+                self.print_error("NOT RESTARTING, RESTART IN PROGRESS")
                 return
             asyncio.run_coroutine_threadsafe(job(), self.loop)
         elif self.default_server != server:
@@ -534,7 +534,7 @@ class Network(util.DaemonThread):
             try:
                 await asyncio.wait_for(asyncio.shield(interface.boot_job), 6) # longer than any timeout while connecting
             except TimeoutError:
-                print("taking too long", interface.server)
+                self.print_error("taking too long", interface.server)
                 raise
             interface.close()
 
@@ -770,10 +770,6 @@ class Network(util.DaemonThread):
             interface.print_error(error or 'bad response')
             return
         index = params[0]
-        # Ignore unsolicited chunks
-        if index not in self.requested_chunks:
-            return
-        self.requested_chunks.remove(index)
         connect = interface.blockchain.connect_chunk(index, result)
         if not connect:
             await self.connection_down(interface.server, "could not connect chunk")
@@ -940,7 +936,7 @@ class Network(util.DaemonThread):
             except:
                 if not self.stopped:
                     traceback.print_exc()
-                    print("FATAL ERROR ^^^")
+                    self.print_error("FATAL ERROR ^^^")
         return asyncio.ensure_future(job())
 
     def make_process_responses_job(self, interface):
@@ -951,11 +947,11 @@ class Network(util.DaemonThread):
                 pass
             except OSError:
                 await self.connection_down(interface.server, "OSError in process_responses")
-                print("OS error, connection downed")
+                self.print_error("OS error, connection downed")
             except BaseException:
                 if not self.stopped:
                     traceback.print_exc()
-                    print("FATAL ERROR in process_responses")
+                    self.print_error("FATAL ERROR in process_responses")
         return asyncio.ensure_future(job())
 
     def make_process_pending_sends_job(self):
@@ -971,7 +967,7 @@ class Network(util.DaemonThread):
             except BaseException as e:
                 if not self.stopped:
                     traceback.print_exc()
-                    print("FATAL ERROR in process_pending_sends")
+                    self.print_error("FATAL ERROR in process_pending_sends")
         return asyncio.ensure_future(job())
 
     def init_headers_file(self):
@@ -1023,12 +1019,12 @@ class Network(util.DaemonThread):
                 return
                 #self.notify('interfaces')
             except GeneratorExit:
-                print(interface.server, "GENERATOR EXIT")
+                self.print_error(interface.server, "GENERATOR EXIT")
                 pass
             except BaseException as e:
                 if not self.stopped:
                     traceback.print_exc()
-                    print("FATAL ERROR in boot_interface")
+                    self.print_error("FATAL ERROR in boot_interface")
                     raise e
         interface.boot_job = asyncio.ensure_future(job())
         interface.boot_job.server = interface.server
@@ -1037,7 +1033,7 @@ class Network(util.DaemonThread):
                 fut.exception()
             except:
                 traceback.print_exc()
-                print("Previous exception in boot_job")
+                self.print_error("Previous exception in boot_job")
         interface.boot_job.add_done_callback(boot_job_cb)
 
     def make_ping_job(self, interface):
@@ -1048,7 +1044,7 @@ class Network(util.DaemonThread):
                     # Send pings and shut down stale interfaces
                     # must use copy of values
                     if interface.has_timed_out():
-                        print(interface.server, "timed out")
+                        self.print_error(interface.server, "timed out")
                         await self.connection_down(interface.server, "time out in ping_job")
                         return
                     elif interface.ping_required():
@@ -1059,7 +1055,7 @@ class Network(util.DaemonThread):
             except:
                 if not self.stopped:
                     traceback.print_exc()
-                    print("FATAL ERROR in ping_job")
+                    self.print_error("FATAL ERROR in ping_job")
         return asyncio.ensure_future(job())
 
     def all_server_locks(self, ctx):
@@ -1122,7 +1118,7 @@ class Network(util.DaemonThread):
                 self.process_pending_sends_job = self.make_process_pending_sends_job()
             except:
                 traceback.print_exc()
-                print("Previous exception in start_network")
+                self.print_error("Previous exception in start_network")
                 raise
         asyncio.ensure_future(job())
         run_future = asyncio.Future()
@@ -1138,7 +1134,7 @@ class Network(util.DaemonThread):
     async def run_async(self, future):
         try:
             while self.is_running():
-                #print(len(asyncio.Task.all_tasks()))
+                #self.print_error(len(asyncio.Task.all_tasks()))
                 await asyncio.sleep(1)
                 await self.maintain_requests()
                 await self.maintain_interfaces()
@@ -1150,7 +1146,7 @@ class Network(util.DaemonThread):
                 try:
                     await asyncio.wait_for(asyncio.shield(i), 2)
                 except TimeoutError:
-                    print("TOO SLOW TO SHUT DOWN, CANCELLING", i)
+                    self.print_error("TOO SLOW TO SHUT DOWN, CANCELLING", i)
                     i.cancel()
                 except CancelledError:
                     pass
