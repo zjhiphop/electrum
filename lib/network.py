@@ -762,10 +762,6 @@ class Network(util.DaemonThread):
             interface.print_error(error or 'bad response')
             return
         index = params[0]
-        # Ignore unsolicited chunks
-        if index not in self.requested_chunks:
-            return
-        self.requested_chunks.remove(index)
         connect = interface.blockchain.connect_chunk(index, result)
         if not connect:
             await self.connection_down(interface.server, "could not connect chunk")
