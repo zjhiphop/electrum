@@ -696,7 +696,11 @@ class LightningWorker(ForeverCoroutineJob):
         self.config = config
         ks = self.wallet().keystore
         assert hasattr(ks, "xprv"), "Wallet must have xprv, can't be e.g. imported"
-        xprv, xpub = bitcoin.bip32_private_derivation(ks.xprv, "m/", "m/152/152/152/152")
+        try:
+            xprv = ks.get_master_private_key(None)
+        except:
+            raise BaseException("Could not get master private key, is the wallet password protected?")
+        xprv, xpub = bitcoin.bip32_private_derivation(xprv, "m/", "m/152/152/152/152")
         tupl = bitcoin.deserialize_xprv(xprv)
         privKey = tupl[-1]
         assert type(privKey) is type(bytes([]))
