@@ -740,7 +740,7 @@ class Network(util.DaemonThread):
     async def new_interface(self, server):
         # todo: get tip first, then decide which checkpoint to use.
         self.add_recent_server(server)
-        interface = Interface(server, self.config.path, self.proxy, lambda: not self.stopped and server not in self.interfaces)
+        interface = Interface(server, self.config.path, self.proxy, lambda: not self.stopped and server in self.interfaces)
         interface.future = asyncio.Future()
         interface.blockchain = None
         interface.tip_header = None
