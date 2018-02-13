@@ -694,7 +694,7 @@ class Commands:
         return sorted(known_commands.keys())
 
     @command("wn")
-    def lightning(self, lcmd, *args):
+    def lightning(self, lcmd, args=None):
         q = queue.Queue()
         class FakeQtSignal:
             def emit(self, data):
@@ -702,6 +702,10 @@ class Commands:
         class MyConsole:
             newResult = FakeQtSignal()
         self.wallet.lightning.setConsole(MyConsole())
+        if args:
+            args = json_decode(args)
+        else:
+            args = []
         lightning.lightningCall(self.wallet.lightning, lcmd)(*args)
         return q.get(block=True, timeout=30)
 
