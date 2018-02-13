@@ -694,7 +694,7 @@ class Commands:
         return sorted(known_commands.keys())
 
     @command("wn")
-    def lightning(self, lcmd, args=None):
+    def lightning(self, lcmd, lightningargs=None):
         q = queue.Queue()
         class FakeQtSignal:
             def emit(self, data):
@@ -759,6 +759,7 @@ command_options = {
     'pending':     (None, "Show only pending requests."),
     'expired':     (None, "Show only expired requests."),
     'paid':        (None, "Show only paid requests."),
+    'lightningargs':(None, "Arguments for an lncli subcommand, encoded as a JSON array"),
 }
 
 
