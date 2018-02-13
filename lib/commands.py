@@ -702,11 +702,11 @@ class Commands:
         class MyConsole:
             newResult = FakeQtSignal()
         self.wallet.lightning.setConsole(MyConsole())
-        if args:
-            args = json_decode(args)
+        if lightningargs:
+            lightningargs = json_decode(lightningargs)
         else:
-            args = []
-        lightning.lightningCall(self.wallet.lightning, lcmd)(*args)
+            lightningargs = []
+        lightning.lightningCall(self.wallet.lightning, lcmd)(*lightningargs)
         return q.get(block=True, timeout=30)
 
 param_descriptions = {
