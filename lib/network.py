@@ -588,7 +588,12 @@ class Network(util.DaemonThread):
             await self.on_get_header(interface, response)
 
         for callback in callbacks:
-            callback(response)
+           if asyncio.iscoroutinefunction(callback):
+               if response is None:
+                   print("RESPONSE IS NONE")
+               await callback(response)
+           else:
+               callback(response)
 
     def get_index(self, method, params):
         """ hashable index for subscriptions and cache"""
