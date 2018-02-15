@@ -1261,3 +1261,34 @@ class Network(util.DaemonThread):
 
     def max_checkpoint(self):
         return max(0, len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016 - 1)
+
+    async def send_async(self, messages, callback=None):
+        """ if callback is None, it returns the result """
+        chosenCallback = callback
+        if callback is None:
+            queue = asyncio.Queue()
+            chosenCallback = queue.put
+        assert type(messages[0]) is tuple and len(messages[0]) == 2, repr(messages) + " does not contain a pair-tuple in first position"
+        await self.pending_sends.put((messages, chosenCallback))
+        if callback is None:
+            #assert queue.qsize() == 1, "queue does not have a single result, it has length " + str(queue.qsize())
+            return await asyncio.wait_for(queue.get(), 5)
+
+    async def asynchronous_get(self, request):
+        assert type(request) is tuple
+        assert type(request[1]) is list
+        res = await self.send_async([request])
+        try:
+            return res.get("result")
+        except:
+            print("asynchronous_get could not get result from", res)
+            raise BaseException("Could not get result: " + repr(res))
+
+    async def broadcast_async(self, tx):
+        tx_hash = tx.txid()
+        try:
+            return True, await self.asynchronous_get(('blockchain.transaction.broadcast', [str(tx)]))
+        except BaseException as e:
+            traceback.print_exc()
+            print("previous trace was captured and printed in broadcast_async")
+            return False, str(e)
