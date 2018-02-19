@@ -33,11 +33,11 @@ locked = set()
 
 machine = "148.251.87.112"
 
-def SetHdSeed(json):
-    req = rpc_pb2.SetHdSeedRequest()
+def WriteDb(json):
+    req = rpc_pb2.WriteDbRequest()
     json_format.Parse(json, req)
-    print("set hdseed unimplemented", int.from_bytes(req.hdSeed, "big"))
-    m = rpc_pb2.SetHdSeedResponse()
+    print("writedb unimplemented", req.dbData)
+    m = rpc_pb2.WriteDbResponse()
     msg = json_format.MessageToJson(m)
     return msg
 
@@ -761,7 +761,7 @@ async def readReqAndReply(obj, writer):
     ,ConfirmedBalance
     ,NewAddress
     ,ListUnspentWitness
-    ,SetHdSeed
+    ,WriteDb
     ,NewRawKey
     ,FetchInputInfo
     ,ComputeInputScript
