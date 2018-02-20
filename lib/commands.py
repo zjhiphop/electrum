@@ -707,7 +707,7 @@ class Commands:
         else:
             lightningargs = []
         lightning.lightningCall(self.wallet.lightning, lcmd)(*lightningargs)
-        return q.get(block=True, timeout=30)
+        return q.get(block=True, timeout=600)
 
 param_descriptions = {
     'privkey': 'Private key. Type \'?\' to get a prompt.',
