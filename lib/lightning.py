@@ -683,8 +683,6 @@ class LightningUI():
         return lightningCall(self.rpc(), nam)
 
 privateKeyHash = None
-ip = lambda: "{}.{}.{}.{}".format(privateKeyHash[0], privateKeyHash[1], privateKeyHash[2], privateKeyHash[3])
-port = lambda: int.from_bytes(privateKeyHash[4:6], "big")
 
 class LightningWorker(ForeverCoroutineJob):
     def __init__(self, wallet, network, config):
@@ -735,13 +733,14 @@ class LightningWorker(ForeverCoroutineJob):
                 reader, writer = await asyncio.wait_for(asyncio.open_connection(machine, 1080), 5)
                 writer.write(b"MAGIC")
                 writer.write(privateKeyHash[:6])
-                await writer.drain()
+                await asyncio.wait_for(writer.drain(), 5)
                 while is_running():
                     obj = await readJson(reader, is_running)
                     if not obj: continue
-                    await readReqAndReply(obj, writer)
+                    await asyncio.wait_for(readReqAndReply(obj, writer), 10)
             except:
                 traceback.print_exc()
+                await asyncio.sleep(5)
                 continue
 
 async def readJson(reader, is_running):
