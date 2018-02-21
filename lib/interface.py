@@ -169,9 +169,9 @@ class Interface(util.PrintError):
             if self.use_ssl:
                 cert_path = os.path.join(self.config_path, 'certs', self.host)
                 if not os.path.exists(cert_path):
-                    temporary_path = await self._save_certificate(cert_path, False)
+                    temporary_path = await self._save_certificate(cert_path, True)
                     if not temporary_path:
-                        temporary_path = await self._save_certificate(cert_path, True)
+                        temporary_path = await self._save_certificate(cert_path, False)
                     if not temporary_path:
                         raise ConnectionError("Could not get certificate on second try")
 
