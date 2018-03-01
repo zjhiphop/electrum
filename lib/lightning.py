@@ -748,6 +748,8 @@ class LightningWorker(ForeverCoroutineJob):
 async def readJson(reader, is_running):
     data = b""
     while is_running():
+      newlines = sum(1 if x == b"\n" else 0 for x in data)
+      if newlines > 1: print("Too many newlines 3!", data)
       try:
         return json.loads(data)
       except ValueError:
@@ -790,12 +792,12 @@ async def readReqAndReply(obj, writer):
     except BaseException as e:
         traceback.print_exc()
         print("exception while calling method", obj["method"])
-        writer.write(json.dumps({"id":obj["id"],"error": {"code": -32002, "message": str(e)}}).encode("ascii"))
+        writer.write(json.dumps({"id":obj["id"],"error": {"code": -32002, "message": str(e)}}).encode("ascii") + b"\n")
         await writer.drain()
     else:
         if not found:
             # TODO assumes obj has id
-            writer.write(json.dumps({"id":obj["id"],"error": {"code": -32601, "message": "invalid method"}}).encode("ascii"))
+            writer.write(json.dumps({"id":obj["id"],"error": {"code": -32601, "message": "invalid method"}}).encode("ascii") + b"\n")
         else:
             print("result was", result)
             if result is None:
@@ -805,7 +807,7 @@ async def readReqAndReply(obj, writer):
             except:
                 traceback.print_exc()
                 print("wrong method implementation")
-                writer.write(json.dumps({"id":obj["id"],"error": {"code": -32000, "message": "wrong return type in electrum-lightning-hub"}}).encode("ascii"))
+                writer.write(json.dumps({"id":obj["id"],"error": {"code": -32000, "message": "wrong return type in electrum-lightning-hub"}}).encode("ascii") + b"\n")
             else:
-                writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii"))
+                writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii") + b"\n")
         await writer.drain()
