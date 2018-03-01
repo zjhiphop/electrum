@@ -748,8 +748,8 @@ class LightningWorker(ForeverCoroutineJob):
 async def readJson(reader, is_running):
     data = b""
     while is_running():
-      newlines = sum(1 if x == b"\n" else 0 for x in data)
-      if newlines > 1: print("Too many newlines 3!", data)
+      newlines = sum(1 if x == b"\n"[0] else 0 for x in data)
+      if newlines > 1: print("Too many newlines in Electrum/lightning.py!", data)
       try:
         return json.loads(data)
       except ValueError:
