@@ -736,7 +736,9 @@ class LightningWorker(ForeverCoroutineJob):
                 await asyncio.wait_for(writer.drain(), 5)
                 while is_running():
                     obj = await readJson(reader, is_running)
-                    if not obj: continue
+                    if "id" not in obj:
+                        print("Invoice update?", obj)
+                        continue
                     await asyncio.wait_for(readReqAndReply(obj, writer), 10)
             except:
                 traceback.print_exc()
@@ -746,10 +748,10 @@ class LightningWorker(ForeverCoroutineJob):
 async def readJson(reader, is_running):
     data = b""
     while is_running():
-      if data != b"": print("parse failed, data has", data)
       try:
         return json.loads(data)
       except ValueError:
+        if data != b"": print("parse failed, data has", data)
         try:
             data += await asyncio.wait_for(reader.read(2048), 1)
         except TimeoutError:
@@ -792,6 +794,7 @@ async def readReqAndReply(obj, writer):
         await writer.drain()
     else:
         if not found:
+            # TODO assumes obj has id
             writer.write(json.dumps({"id":obj["id"],"error": {"code": -32601, "message": "invalid method"}}).encode("ascii"))
         else:
             print("result was", result)
