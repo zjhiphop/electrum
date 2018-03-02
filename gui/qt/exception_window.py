@@ -57,6 +57,8 @@ class Exception_Window(QWidget):
 
     def __init__(self, main_window, exctype, value, tb):
         self.exc_args = (exctype, value, tb)
+        print(self.get_traceback_info()["exc_string"])
+        print(self.get_traceback_info()["stack"])
         self.main_window = main_window
         QWidget.__init__(self)
         self.setWindowTitle('Electrum - ' + _('An Error Occured'))
