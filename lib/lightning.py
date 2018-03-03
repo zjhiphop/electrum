@@ -1,3 +1,4 @@
+import functools
 import sys
 import struct
 import traceback
@@ -644,6 +645,7 @@ class LightningRPC(ForeverCoroutineJob):
     def __init__(self):
         super(LightningRPC, self).__init__()
         self.queue = queue.Queue()
+        self.subscribers = []
     # overridden
     async def run(self, is_running):
       print("RPC STARTED")
@@ -654,19 +656,32 @@ class LightningRPC(ForeverCoroutineJob):
             await asyncio.sleep(1)
             pass
         else:
-            def call(qitem):
+            def lightningRpcNetworkRequestThreadTarget(qitem):
+                applyMethodName = lambda x: functools.partial(x, qitem.methodName)
                 client = Server("http://" + machine + ":8090")
-                result = getattr(client, qitem.methodName)(base64.b64encode(privateKeyHash[:6]).decode("ascii"), *[str(x) for x in qitem.args])
+                argumentStrings = [str(x) for x in qitem.args]
+                lightningSessionKey = base64.b64encode(privateKeyHash[:6]).decode("ascii")
+                resolvedMethod = getattr(client, qitem.methodName)
+                try:
+                    result = resolvedMethod(lightningSessionKey, *argumentStrings)
+                except BaseException as e:
+                    traceback.print_exc()
+                    for i in self.subscribers: applyMethodName(i)(e)
+                    raise
                 toprint = result
                 try:
-                    if result["stderr"] == "" and result["returncode"] == 0:
-                        toprint = json.loads(result["stdout"])
-                except:
-                    pass
+                    assert result["stderr"] == "" and result["returncode"] == 0, "LightningRPC detected error: " + result["stderr"]
+                    toprint = json.loads(result["stdout"])
+                    for i in self.subscribers: applyMethodName(i)(toprint)
+                except BaseException as e:
+                    traceback.print_exc()
+                    for i in self.subscribers: applyMethodName(i)(e)
                 self.console.newResult.emit(json.dumps(toprint, indent=4))
-            threading.Thread(target=call, args=(qitem, )).start()
+            threading.Thread(target=lightningRpcNetworkRequestThreadTarget, args=(qitem, )).start()
     def setConsole(self, console):
         self.console = console
+    def subscribe(self, notifyFunction):
+        self.subscribers.append(notifyFunction)
 
 def lightningCall(rpc, methodName):
     def fun(*args):
@@ -706,6 +721,7 @@ class LightningWorker(ForeverCoroutineJob):
 
         deser = bitcoin.deserialize_xpub(wallet().keystore.xpub)
         assert deser[0] == "p2wpkh", deser
+        self.subscribers = []
 
     async def run(self, is_running):
         global WALLET, NETWORK
@@ -736,14 +752,18 @@ class LightningWorker(ForeverCoroutineJob):
                 await asyncio.wait_for(writer.drain(), 5)
                 while is_running():
                     obj = await readJson(reader, is_running)
+                    if not obj: continue
                     if "id" not in obj:
                         print("Invoice update?", obj)
+                        for i in self.subscribers: i(obj)
                         continue
                     await asyncio.wait_for(readReqAndReply(obj, writer), 10)
             except:
                 traceback.print_exc()
                 await asyncio.sleep(5)
                 continue
+    def subscribe(self, notifyFunction):
+        self.subscribers.append(functools.partial(notifyFunction, "LightningWorker"))
 
 async def readJson(reader, is_running):
     data = b""

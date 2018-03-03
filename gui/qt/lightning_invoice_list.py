@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import base64
 import binascii
 from PyQt5 import QtCore, QtWidgets
 from collections import OrderedDict
@@ -12,6 +13,8 @@ idx = 0
 
 class MyTableRow(QtWidgets.QTreeWidgetItem):
     def __init__(self, di):
+        if "settled" not in di:
+            di["settled"] = False
         strs = [str(di[mapping[key]]) for key in range(len(mapping))]
         print(strs)
         super(MyTableRow, self).__init__(strs)
@@ -23,7 +26,7 @@ class MyTableRow(QtWidgets.QTreeWidgetItem):
         self.di[idx] = val
         try:
             self.setData(revMapp[idx], QtCore.Qt.DisplayRole, '{0}'.format(val))
-        except IndexError:
+        except KeyError:
             logging.warning("Lightning Invoice field %s unknown", idx)
     def __str__(self):
         return str(self.di)
@@ -34,23 +37,21 @@ def addInvoiceRow(new):
     datatable.move_to_end(new["r_hash"], last=False)
     return made
 
-class SatoshiCountSpinBox(QtWidgets.QSpinBox):
-    def keyPressEvent(self, e):
-        super(SatoshiCountSpinBox, self).keyPressEvent(e)
-        if QtCore.Qt.Key_Return == e.key():
-            clickHandler(self)
-
 def clickHandler(numInput, treeView, lightningRpc):
-    print(numInput.value())
+    amt = numInput.value()
+    if amt < 1:
+        print("value too small")
+        return
+    print("creating invoice with value {}".format(amt))
     global idx
-    obj = {
-        "r_hash": binascii.hexlify((int.from_bytes(bytearray.fromhex("9500edb0994b7bc23349193486b25c82097045db641f35fa988c0e849acdec29"), "big")+idx).to_bytes(byteorder="big", length=32)).decode("ascii"),
-        "pay_req": "lntb81920n1pdf258s" + str(idx),
-        "settled": False
-    }
-    treeView.insertTopLevelItem(0, addInvoiceRow(obj))
+    #obj = {
+    #    "r_hash": binascii.hexlify((int.from_bytes(bytearray.fromhex("9500edb0994b7bc23349193486b25c82097045db641f35fa988c0e849acdec29"), "big")+idx).to_bytes(byteorder="big", length=32)).decode("ascii"),
+    #    "pay_req": "lntb81920n1pdf258s" + str(idx),
+    #    "settled": False
+    #}
+    #treeView.insertTopLevelItem(0, addInvoiceRow(obj))
     idx += 1
-    lightningCall(lightningRpc, "getinfo")()
+    lightningCall(lightningRpc, "addinvoice")("--amt=" + str(amt))
 
 class LightningInvoiceList(QtWidgets.QWidget):
     def create_menu(self, position):
@@ -62,20 +63,47 @@ class LightningInvoiceList(QtWidgets.QWidget):
             cb.setText(pay_req)
         menu.addAction("Copy payment request", copy)
         menu.exec_(self._tv.viewport().mapToGlobal(position))
-    """
-    A simple test widget to contain and own the model and table.
-    """
+    def lightningWorkerHandler(self, sourceClassName, obj):
+        new = {}
+        for k, v in obj.items():
+            try:
+                v = binascii.hexlify(base64.b64decode(v)).decode("ascii")
+            except:
+                pass
+            new[k] = v
+        try:
+            obj = datatable[new["r_hash"]]
+        except KeyError:
+            print("lightning payment invoice r_hash {} unknown!".format(new["r_hash"]))
+        else:
+            for k, v in new.items():
+                try:
+                    if obj[k] != v: obj[k] = v
+                except KeyError:
+                    obj[k] = v
+    def lightningRpcHandler(self, methodName, obj):
+        if methodName != "addinvoice":
+            print("ignoring reply {} to {}".format(obj, methodName))
+            return
+        self._tv.insertTopLevelItem(0, addInvoiceRow(obj))
+        
     def __init__(self, parent, lightningWorker, lightningRpc):
         QtWidgets.QWidget.__init__(self, parent)
 
-        lightningWorker.subscribe(lambda *args: print(args))
-        lightningRpc.subscribe(lambda *args: print(args))
+        lightningWorker.subscribe(self.lightningWorkerHandler)
+        lightningRpc.subscribe(self.lightningRpcHandler)
 
         self._tv=QtWidgets.QTreeWidget(self)
         self._tv.setHeaderLabels([mapping[i] for i in range(len(mapping))])
         self._tv.setColumnCount(len(mapping))
         self._tv.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self._tv.customContextMenuRequested.connect(self.create_menu)
+
+        class SatoshiCountSpinBox(QtWidgets.QSpinBox):
+            def keyPressEvent(self2, e):
+                super(SatoshiCountSpinBox, self2).keyPressEvent(e)
+                if QtCore.Qt.Key_Return == e.key():
+                    clickHandler(self2, self._tv, lightningRpc)
 
         numInput = SatoshiCountSpinBox(self)
 
