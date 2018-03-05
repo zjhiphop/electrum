@@ -12,7 +12,9 @@ async def handler(reader, writer):
 async def handler2(reader, writer):
     while True:
         data = await reader.read(2048)
-        print(data)
+        if data != b'':
+            writer.write(b"HTTP/1.0 200 OK\r\nContent-length: 16\r\n\r\n{\"result\":\"lol\"}")
+            await writer.drain()
 
 asyncio.ensure_future(asyncio.start_server(handler, "127.0.0.1", 1080))
 asyncio.ensure_future(asyncio.start_server(handler2, "127.0.0.1", 8090))

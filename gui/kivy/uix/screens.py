@@ -21,6 +21,7 @@ from electrum.util import profiler, parse_URI, format_time, InvalidPassword, Not
 from electrum import bitcoin
 from electrum.util import timestamp_to_datetime
 from electrum.paymentrequest import PR_UNPAID, PR_PAID, PR_UNKNOWN, PR_EXPIRED
+import electrum.lightning as lightning
 
 from .context_menu import ContextMenu
 
@@ -588,6 +589,29 @@ class AddressScreen(CScreen):
 
     def ext_search(self, card, search):
         return card.memo.find(search) >= 0 or card.amount.find(search) >= 0
+
+class LightningPayerScreen(CScreen):
+    kvname = 'lightning_payer'
+    def on_activate(self, *args, **kwargs):
+        super(LightningPayerScreen, self).on_activate(*args, **kwargs)
+        class FakeQtSignal:
+            def emit(self2, data):
+                self.app.show_info(data)
+        class MyConsole:
+            newResult = FakeQtSignal()
+        self.app.wallet.lightning.setConsole(MyConsole())
+    def do_paste_sample(self):
+        self.screen.invoice_data = "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w"
+    def do_paste(self):
+        contents = self.app._clipboard.paste()
+        if not contents:
+            self.app.show_info(_("Clipboard is empty"))
+            return
+        self.screen.invoice_data = contents
+    def do_clear(self):
+        self.screen.invoice_data = ""
+    def do_pay(self):
+        lightning.lightningCall(self.app.wallet.lightning, "sendpayment")("--pay_req=" + self.screen.invoice_data)
 
 
 

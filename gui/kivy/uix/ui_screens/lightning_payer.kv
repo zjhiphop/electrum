@@ -1,0 +1,32 @@
+LightningPayerScreen:
+    id: s
+    name: 'lightning_payer'
+    invoice_data: '' 
+    BoxLayout:
+        orientation: "vertical"
+        BlueButton:
+            text: s.invoice_data if s.invoice_data else _('Lightning invoice')
+            shorten: True
+            on_release: Clock.schedule_once(lambda dt: app.show_info(_('Copy and paste the lightning invoice using the Paste button, or use the camera to scan a QR code.')))
+        GridLayout:
+            cols: 4
+            size_hint: 1, None
+            height: '48dp'
+            IconButton:
+                id: qr
+                on_release: Clock.schedule_once(lambda dt: app.scan_qr(on_complete=s.on_lightning_qr))
+                icon: 'atlas://gui/kivy/theming/light/camera'
+            Button:
+                text: _('Paste')
+                on_release: s.parent.do_paste()
+            Button:
+                text: _('Paste sample')
+                on_release: s.parent.do_paste_sample()
+            Button:
+                text: _('Clear')
+                on_release: s.parent.do_clear()
+        Button:
+            size_hint: 1, None
+            height: '48dp'
+            text: _('Pay pasted/scanned invoice')
+            on_release: s.parent.do_pay()
