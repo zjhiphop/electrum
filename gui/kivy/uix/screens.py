@@ -622,6 +622,8 @@ class LightningPayerScreen(CScreen):
         self.screen.invoice_data = ""
     def do_pay(self):
         lightning.lightningCall(self.app.wallet.lightning, "sendpayment")("--pay_req=" + self.screen.invoice_data)
+    def on_lightning_qr(self):
+        self.app.show_info("Lightning Invoice QR scanning not implemented") # TODO
 
 
 
