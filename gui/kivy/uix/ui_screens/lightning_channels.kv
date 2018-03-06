@@ -1,0 +1,18 @@
+<LightningChannelItem@CardItem>
+    channelId: '<channelId not set>'
+    Label:
+        text: root.channelId
+
+LightningChannelsScreen:
+    name: 'lightning_channels'
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: '1dp'
+        ScrollView:
+            GridLayout:
+                cols: 1
+                id: lightning_channels_container
+                size_hint: 1, None
+                height: self.minimum_height
+                spacing: '2dp'
+                padding: '12dp'

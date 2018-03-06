@@ -590,6 +590,16 @@ class AddressScreen(CScreen):
     def ext_search(self, card, search):
         return card.memo.find(search) >= 0 or card.amount.find(search) >= 0
 
+class LightningChannelsScreen(CScreen):
+    kvname = "lightning_channels"
+    def on_activate(self, *args, **kwargs):
+        super(LightningChannelsScreen, self).on_activate(*args, **kwargs)
+        channel_cards = self.screen.ids.lightning_channels_container
+        item = Factory.LightningChannelItem()
+        item.screen = self
+        item.channelId = "lolol"
+        channel_cards.add_widget(item)
+
 class LightningPayerScreen(CScreen):
     kvname = 'lightning_payer'
     def on_activate(self, *args, **kwargs):
