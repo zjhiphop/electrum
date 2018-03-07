@@ -677,12 +677,15 @@ class LightningRPC(ForeverCoroutineJob):
                 except BaseException as e:
                     traceback.print_exc()
                     for i in self.subscribers: applyMethodName(i)(e)
-                self.console.newResult.emit(json.dumps(toprint, indent=4))
+                if self.console:
+                    self.console.newResult.emit(json.dumps(toprint, indent=4))
             threading.Thread(target=lightningRpcNetworkRequestThreadTarget, args=(qitem, )).start()
     def setConsole(self, console):
         self.console = console
     def subscribe(self, notifyFunction):
         self.subscribers.append(notifyFunction)
+    def clearSubscribers():
+        self.subscribers = []
 
 def lightningCall(rpc, methodName):
     def fun(*args):

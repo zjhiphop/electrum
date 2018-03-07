@@ -592,13 +592,28 @@ class AddressScreen(CScreen):
 
 class LightningChannelsScreen(CScreen):
     kvname = "lightning_channels"
+    def __init__(self):
+        super(LightningChannelsScreen, self).__init__(*args, **kwargs)
+        self.clocks = []
+        self.
     def on_activate(self, *args, **kwargs):
         super(LightningChannelsScreen, self).on_activate(*args, **kwargs)
+        for i in self.clocks: i.cancel()
+        self.clocks.append(Clock.schedule_interval(self.fetch_channels, 10))
+        self.app.wallet.lightning.subscribe(self.rpc_result_handler)
+    def fetch_channels(self, dw):
+        lightning.lightningCall(self.app.wallet.lightning, "listchannels")()
+    def rpc_result_handler(self, res):
+        if isinstance(res, Exception):
+            raise res
         channel_cards = self.screen.ids.lightning_channels_container
-        item = Factory.LightningChannelItem()
-        item.screen = self
-        item.channelId = "lolol"
-        channel_cards.add_widget(item)
+        channels_cards.clear_widgets()
+        for i in res["channels"]:
+            item = Factory.LightningChannelItem()
+            item.screen = self
+            item.channelId = i.channelId
+            channel_cards.add_widget(item)
+
 
 class LightningPayerScreen(CScreen):
     kvname = 'lightning_payer'
@@ -610,6 +625,8 @@ class LightningPayerScreen(CScreen):
         class MyConsole:
             newResult = FakeQtSignal()
         self.app.wallet.lightning.setConsole(MyConsole())
+    def on_deactivate(self, *args, **kwargs):
+        self.app.wallet.lightning.setConsole(None)
     def do_paste_sample(self):
         self.screen.invoice_data = "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w"
     def do_paste(self):
