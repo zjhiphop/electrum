@@ -595,12 +595,13 @@ class LightningChannelsScreen(CScreen):
     def __init__(self):
         super(LightningChannelsScreen, self).__init__(*args, **kwargs)
         self.clocks = []
-        self.
     def on_activate(self, *args, **kwargs):
         super(LightningChannelsScreen, self).on_activate(*args, **kwargs)
         for i in self.clocks: i.cancel()
         self.clocks.append(Clock.schedule_interval(self.fetch_channels, 10))
         self.app.wallet.lightning.subscribe(self.rpc_result_handler)
+    def on_deactivate(self, *args, **kwargs):
+        self.clearSubscribers()
     def fetch_channels(self, dw):
         lightning.lightningCall(self.app.wallet.lightning, "listchannels")()
     def rpc_result_handler(self, res):
