@@ -842,4 +842,74 @@ async def readReqAndReply(obj, writer):
                 writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii") + b"\n")
         await writer.drain()
 
-assert False, "SecretKeyRing not yet implemented"
+def DerivePrivKey(json):
+    req = rpc_pb2.DerivePrivKeyRequest()
+    json_format.Parse(json, req)
+
+    family = json.keyDescriptor.keyLocator.family
+    idx =  json.keyDescriptor.keyLocator.index
+    pubKey = json.keyDescriptor.pubKey
+
+    m = rpc_pb2.DerivePrivKeyResponse()
+
+    #m.privKey = 
+
+    msg = json_format.MessageToJson(m)
+    return msg
+
+def DeriveNextKey(json):
+    req = rpc_pb2.DeriveNextKeyRequest()
+    json_format.Parse(json, req)
+
+    family = json.keyFamily
+
+    m = rpc_pb2.DeriveNextKeyResponse()
+
+    #m.keyDescriptor.keyLocator.family = 
+    #m.keyDescriptor.keyLocator.index = 
+    #m.keyDescriptor.pubKey = 
+
+    msg = json_format.MessageToJson(m)
+    return msg
+
+def DeriveKey(json):
+    req = rpc_pb2.DeriveKeyRequest()
+    json_format.Parse(json, req)
+
+    family = json.keyLocator.family
+    idx =  json.keyLocator.index
+
+    m = rpc_pb2.DeriveKeyResponse()
+
+    #m.keyDescriptor.keyLocator.family = 
+    #m.keyDescriptor.keyLocator.index = 
+    #m.keyDescriptor.pubKey = 
+
+    msg = json_format.MessageToJson(m)
+    return msg
+
+#// ScalarMult performs a scalar multiplication (ECDH-like operation) between
+#// the target key descriptor and remote public key. The output returned will be
+#// the sha256 of the resulting shared point serialized in compressed format. If
+#// k is our private key, and P is the public key, we perform the following
+#// operation:
+#//
+#//  sx := k*P s := sha256(sx.SerializeCompressed())
+def ScalarMult(json):
+    req = rpc_pb2.ScalarMultRequest()
+    json_format.Parse(json, req)
+
+    keyDescFam = json.keyDescriptor.keyLocator.family
+    keyDescIdx = json.keyDescriptor.keyLocator.index
+    keyDescPubKey = json.keyDescriptor.pubKey
+
+    pubKey = json.pubKey
+
+    m = rpc_pb2.ScalarMultResponse()
+
+    #m.pubKey = b""
+
+    msg = json_format.MessageToJson(m)
+    return msg
+
+assert False, "SecretKeyRing not implemented"
