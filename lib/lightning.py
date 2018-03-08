@@ -32,8 +32,8 @@ NETWORK = None
 CONFIG = None
 locked = set()
 
-#machine = "148.251.87.112"
-machine = "127.0.0.1"
+machine = "148.251.87.112"
+#machine = "127.0.0.1"
 
 def WriteDb(json):
     req = rpc_pb2.WriteDbRequest()
@@ -49,7 +49,7 @@ def ConfirmedBalance(json):
     json_format.Parse(json, request)
     m = rpc_pb2.ConfirmedBalanceResponse()
     confs = request.confirmations
-    witness = request.witness  # bool
+    #witness = request.witness  # bool
 
     m.amount = sum(WALLET.get_balance())
     msg = json_format.MessageToJson(m)
@@ -72,13 +72,13 @@ def NewAddress(json):
     return msg
 
 
-def FetchRootKey(json):
-    request = rpc_pb2.FetchRootKeyRequest()
-    json_format.Parse(json, request)
-    m = rpc_pb2.FetchRootKeyResponse()
-    m.rootKey = WALLET.keystore.get_private_key([151,151,151,151], None)[0]
-    msg = json_format.MessageToJson(m)
-    return msg
+#def FetchRootKey(json):
+#    request = rpc_pb2.FetchRootKeyRequest()
+#    json_format.Parse(json, request)
+#    m = rpc_pb2.FetchRootKeyResponse()
+#    m.rootKey = WALLET.keystore.get_private_key([151,151,151,151], None)[0]
+#    msg = json_format.MessageToJson(m)
+#    return msg
 
 
 cl = rpc_pb2.ListUnspentWitnessRequest
@@ -123,23 +123,23 @@ i = 0
 
 usedAddresses = set()
 
-def NewRawKey(json):
-    global i
-    addresses = WALLET.get_unused_addresses()
-    res = rpc_pb2.NewRawKeyResponse()
-    pubk = None
-    assert len(set(addresses) - usedAddresses) > 0, "used all addresses!"
-    while pubk is None:
-      i = i + 1
-      if i > len(addresses) - 1:
-          i = 0
-      # TODO do not reuse keys!!!!!!!!!!!!!!!!
-      # find out when get_unused_addresses marks an address used...
-      if addresses[i] not in usedAddresses:
-        pubk = addresses[i]
-        usedAddresses.add(pubk)
-    res.publicKey = bytes(bytearray.fromhex(WALLET.get_public_keys(pubk)[0]))
-    return json_format.MessageToJson(res)
+#def NewRawKey(json):
+#    global i
+#    addresses = WALLET.get_unused_addresses()
+#    res = rpc_pb2.NewRawKeyResponse()
+#    pubk = None
+#    assert len(set(addresses) - usedAddresses) > 0, "used all addresses!"
+#    while pubk is None:
+#      i = i + 1
+#      if i > len(addresses) - 1:
+#          i = 0
+#      # TODO do not reuse keys!!!!!!!!!!!!!!!!
+#      # find out when get_unused_addresses marks an address used...
+#      if addresses[i] not in usedAddresses:
+#        pubk = addresses[i]
+#        usedAddresses.add(pubk)
+#    res.publicKey = bytes(bytearray.fromhex(WALLET.get_public_keys(pubk)[0]))
+#    return json_format.MessageToJson(res)
 
 
 def LockOutpoint(json):
@@ -243,7 +243,9 @@ def isSynced():
 
 def IsSynced(json):
     m = rpc_pb2.IsSyncedResponse()
-    m.synced, _, _ = isSynced()
+    m.synced, localHeight, _ = isSynced()
+    block = NETWORK.blockchain().read_header(localHeight)
+    m.lastBlockTimestamp = block["timestamp"]
     return json_format.MessageToJson(m)
 
 def SignMessage(json):
@@ -304,25 +306,6 @@ def toint(x):
     else:
         assert False, "invalid length for toint(): " + str(len(x))
     return struct.unpack(fmt, x)[0]
-
-
-class SignDescriptor(object):
-    def __init__(self, pubKey=None, sigHashes=None, inputIndex=None, singleTweak=None, hashType=None, doubleTweak=None, witnessScript=None, output=None):
-        self.pubKey = pubKey
-        self.sigHashes = sigHashes
-        self.inputIndex = inputIndex
-        self.singleTweak = singleTweak
-        self.hashType = hashType
-        self.doubleTweak = doubleTweak
-        self.witnessScript = witnessScript
-        self.output = output
-
-    def __str__(self):
-        return '%s(%s)' % (
-            type(self).__name__,
-            ', '.join('%s=%s' % item for item in vars(self).items())
-        )
-
 
 class TxSigHashes(object):
     def __init__(self, hashOutputs=None, hashSequence=None, hashPrevOuts=None):
@@ -534,9 +517,11 @@ def SignOutputRaw(json):
 
 
 def signOutputRaw(tx, signDesc):
-    adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
-        signDesc.pubKey).decode("utf-8"))  # Because this is all NewAddress supports
-    pri = fetchPrivKey(adr)
+    adr = None
+    if len(signDesc.pubKey) != 0:
+       adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
+           signDesc.keyDescriptor.pubKey).decode("utf-8"))  # Because this is all NewAddress supports
+    pri = fetchPrivKey(adr, signDesc.keyDescriptor.keyLocator.family, signDesc.keyDescriptor.keyLocator.index)
     pri2 = maybeTweakPrivKey(signDesc, pri)
     sig = rawTxInWitnessSignature(tx, signDesc.sigHashes, signDesc.inputIndex,
                                   signDesc.output.value, signDesc.witnessScript, sigHashAll, pri2)
@@ -586,14 +571,29 @@ def ComputeInputScript(json):
     return msg
 
 
-def fetchPrivKey(str_address):
-    # TODO FIXME privkey should be retrieved from wallet using also signer_key (in signdesc)
-    pri, redeem_script = WALLET.export_private_key(str_address, None)
+def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
+    pri = None
 
-    if redeem_script:
-        print("ignoring redeem script", redeem_script)
+    if str_address is not None:
+        pri, redeem_script = WALLET.export_private_key(str_address, None)
 
-    typ, pri, compressed = bitcoin.deserialize_privkey(pri)
+        if redeem_script:
+            print("ignoring redeem script", redeem_script)
+
+        typ, pri, compressed = bitcoin.deserialize_privkey(pri)
+
+        ks = keystore.BIP32_KeyStore({})
+        der = "m/0'/"
+        xtype = 'p2wpkh'
+        ks.add_xprv_from_seed(int.from_bytes(pri, "big"), xtype, der)
+    else:
+        ks = WALLET.keystore
+
+    if keyLocatorFamily != 0 or keyLocatorIndex != 0:
+        pri = ks.get_private_key([1017, keyLocatorFamily, keyLocatorIndex], password=None)[0]
+
+    assert pri is not None, (str_address, keyLocatorFamily, keyLocatorIndex)
+
     pri = EC_KEY(pri)
     return pri
 
@@ -603,7 +603,8 @@ def computeInputScript(tx, signdesc):
         signdesc.output.pkScript)
     assert typ != bitcoin.TYPE_SCRIPT
 
-    pri = fetchPrivKey(str_address)
+    assert len(signdesc.keyDescriptor.pubKey) == 0
+    pri = fetchPrivKey(str_address, signdesc.keyDescriptor.keyLocator.family, signdesc.keyDescriptor.keyLocator.index)
 
     isNestedWitness = False  # because NewAddress only does native addresses
 
@@ -784,12 +785,17 @@ async def readJson(reader, is_running):
             continue
 
 async def readReqAndReply(obj, writer):
-    methods = [FetchRootKey
+    methods = [
+    # SecretKeyRing
+    DerivePrivKey,
+    DeriveNextKey,
+    DeriveKey,
+    ScalarMult
+    # Signer / BlockchainIO
     ,ConfirmedBalance
     ,NewAddress
     ,ListUnspentWitness
     ,WriteDb
-    ,NewRawKey
     ,FetchInputInfo
     ,ComputeInputScript
     ,SignOutputRaw
@@ -835,3 +841,5 @@ async def readReqAndReply(obj, writer):
             else:
                 writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii") + b"\n")
         await writer.drain()
+
+assert False, "SecretKeyRing not yet implemented"
