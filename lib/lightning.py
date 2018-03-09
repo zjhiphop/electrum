@@ -842,22 +842,31 @@ async def readReqAndReply(obj, writer):
                 writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii") + b"\n")
         await writer.drain()
 
+def derivePrivKey(keyDesc):
+    keyDescFam = keyDesc.keyLocator.family
+    keyDescIdx = keyDesc.keyLocator.index
+    keyDescPubKey = keyDesc.pubKey
+    adr = None
+    if len(keyDescPubKey) != 0:
+       adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
+           keyDescPubKey).decode("utf-8"))
+    return fetchPrivKey(adr, keyDescFam, keyDescIdx)
+
 def DerivePrivKey(json):
     req = rpc_pb2.DerivePrivKeyRequest()
     json_format.Parse(json, req)
 
-    family = json.keyDescriptor.keyLocator.family
-    idx =  json.keyDescriptor.keyLocator.index
-    pubKey = json.keyDescriptor.pubKey
-
     m = rpc_pb2.DerivePrivKeyResponse()
 
-    #m.privKey = 
+    m.privKey = derivePrivKey(json.keyDescriptor).privkey.secret_multiplier
 
     msg = json_format.MessageToJson(m)
     return msg
 
+globalIdx = 0
+
 def DeriveNextKey(json):
+    global globalIdx
     req = rpc_pb2.DeriveNextKeyRequest()
     json_format.Parse(json, req)
 
@@ -865,9 +874,13 @@ def DeriveNextKey(json):
 
     m = rpc_pb2.DeriveNextKeyResponse()
 
+    # lnd leaves these unset:
+    # source: https://github.com/lightningnetwork/lnd/pull/769/files#diff-c954f5135a8995b1a3dfa298101dd0efR160
     #m.keyDescriptor.keyLocator.family = 
     #m.keyDescriptor.keyLocator.index = 
-    #m.keyDescriptor.pubKey = 
+
+    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx)
+    globalIdx += 1
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -881,9 +894,11 @@ def DeriveKey(json):
 
     m = rpc_pb2.DeriveKeyResponse()
 
-    #m.keyDescriptor.keyLocator.family = 
-    #m.keyDescriptor.keyLocator.index = 
-    #m.keyDescriptor.pubKey = 
+    #lnd sets these to parameter values
+    m.keyDescriptor.keyLocator.family = family
+    m.keyDescriptor.keyLocator.index = index
+
+    m.keyDescriptor.pubKey = fetchPrivKey(None, family, index).get_verifying_key().to_string()
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -899,17 +914,18 @@ def ScalarMult(json):
     req = rpc_pb2.ScalarMultRequest()
     json_format.Parse(json, req)
 
-    keyDescFam = json.keyDescriptor.keyLocator.family
-    keyDescIdx = json.keyDescriptor.keyLocator.index
-    keyDescPubKey = json.keyDescriptor.pubKey
+    privKey = derivePrivKey(json.keyDescriptor)
 
-    pubKey = json.pubKey
+    point = bitcoin.ser_to_point(json.pubKey)
+
+    point = point * int.from_bytes(privKey.secret_multiplier, "big")
+
+    c = hashlib.sha256()
+    c.update(bitcoin.point_to_ser(point, True))
 
     m = rpc_pb2.ScalarMultResponse()
 
-    #m.pubKey = b""
+    m.pubKey = c.digest()
 
     msg = json_format.MessageToJson(m)
     return msg
-
-assert False, "SecretKeyRing not implemented"
