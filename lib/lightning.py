@@ -245,7 +245,7 @@ def IsSynced(json):
     m = rpc_pb2.IsSyncedResponse()
     m.synced, localHeight, _ = isSynced()
     block = NETWORK.blockchain().read_header(localHeight)
-    m.lastBlockTimestamp = block["timestamp"]
+    m.lastBlockTimeStamp = block["timestamp"]
     return json_format.MessageToJson(m)
 
 def SignMessage(json):
