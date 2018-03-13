@@ -858,7 +858,7 @@ def DerivePrivKey(json):
 
     m = rpc_pb2.DerivePrivKeyResponse()
 
-    m.privKey = derivePrivKey(json.keyDescriptor).privkey.secret_multiplier
+    m.privKey = derivePrivKey(req.keyDescriptor).privkey.secret_multiplier
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -870,7 +870,7 @@ def DeriveNextKey(json):
     req = rpc_pb2.DeriveNextKeyRequest()
     json_format.Parse(json, req)
 
-    family = json.keyFamily
+    family = req.keyFamily
 
     m = rpc_pb2.DeriveNextKeyResponse()
 
@@ -889,8 +889,8 @@ def DeriveKey(json):
     req = rpc_pb2.DeriveKeyRequest()
     json_format.Parse(json, req)
 
-    family = json.keyLocator.family
-    idx =  json.keyLocator.index
+    family = req.keyLocator.family
+    idx =  req.keyLocator.index
 
     m = rpc_pb2.DeriveKeyResponse()
 
@@ -914,9 +914,9 @@ def ScalarMult(json):
     req = rpc_pb2.ScalarMultRequest()
     json_format.Parse(json, req)
 
-    privKey = derivePrivKey(json.keyDescriptor)
+    privKey = derivePrivKey(req.keyDescriptor)
 
-    point = bitcoin.ser_to_point(json.pubKey)
+    point = bitcoin.ser_to_point(req.pubKey)
 
     point = point * int.from_bytes(privKey.secret_multiplier, "big")
 
