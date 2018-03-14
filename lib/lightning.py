@@ -499,7 +499,7 @@ def ComputeInputScript(json):
     req = rpc_pb2.ComputeInputScriptRequest()
     json_format.Parse(json, req)
 
-    assert len(req.signDesc.pubKey) in [33, 0]
+    #assert len(req.signDesc.pubKey) in [33, 0]
     assert len(req.signDesc.doubleTweak) in [32, 0]
     assert len(req.signDesc.sigHashes.hashPrevOuts) == 64
     assert len(req.signDesc.sigHashes.hashSequence) == 64
