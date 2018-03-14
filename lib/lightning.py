@@ -10,7 +10,7 @@ from google.protobuf import json_format
 import binascii
 import ecdsa.util
 import hashlib
-from ecdsa import SigningKey
+from .bitcoin import EC_KEY, MySigningKey
 from ecdsa.curves import SECP256k1
 from . import bitcoin
 from . import transaction
@@ -265,8 +265,8 @@ def SignMessage(json):
         print("searching lightning_extra_keys", req.pubKey)
         for i in priv_keys:
             assert type(i) is int
-            signkey = SigningKey.from_secret_exponent(i, curve=SECP256k1)
-            pubkeystr = signkey.get_verifying_key().to_string()
+            signkey = EC_KEY(i.to_bytes(32, "big"))
+            pubkeystr = pubkFromECKEY(signkey)
             print("pubkeystr", pubkeystr)
             if pubkeystr == req.pubKey:
                 pri = signkey
@@ -275,7 +275,7 @@ def SignMessage(json):
     else:
         pri, _ = WALLET.export_private_key(address, None)
         typ, pri, compressed = bitcoin.deserialize_privkey(pri)
-        pri = SigningKey.from_string(pri, curve=SECP256k1)
+        pri = EC_KEY(pri)
 
     m.signature = pri.sign(bitcoin.Hash(req.messageToBeSigned), ecdsa.util.sigencode_der)
     m.error = ""
@@ -333,7 +333,7 @@ def tweakPrivKey(basePriv, commitTweak):
     tweakInt = int.from_bytes(commitTweak, byteorder="big")
     tweakInt += basePriv.secret # D is secret
     tweakInt %= SECP256k1.generator.order()
-    return SigningKey.from_string(tweakInt.to_bytes(32, 'big'), curve=SECP256k1)
+    return EC_KEY(tweakInt.to_bytes(32, 'big'))
 
 def singleTweakBytes(commitPoint, basePoint):
     m = hashlib.sha256()
@@ -356,14 +356,14 @@ def deriveRevocationPrivKey(revokeBasePriv, commitSecret):
     revocationPriv = revokeHalfPriv + commitHalfPriv
     revocationPriv %= SECP256k1.generator.order()
 
-    return SigningKey.from_string(revocationPriv.to_bytes(32, byteorder="big"), curve=SECP256k1)
+    return EC_KEY(revocationPriv.to_bytes(32, byteorder="big"))
 
 
 def maybeTweakPrivKey(signdesc, pri):
     if len(signdesc.singleTweak) > 0:
         pri2 = tweakPrivKey(pri, signdesc.singleTweak)
     elif len(signdesc.doubleTweak) > 0:
-        pri2 = deriveRevocationPrivKey(pri, SigningKey.from_string(signdesc.doubleTweak, curve=SECP256k1))
+        pri2 = deriveRevocationPrivKey(pri, EC_KEY(signdesc.doubleTweak))
     else:
         pri2 = pri
 
@@ -594,7 +594,7 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
 
     assert pri is not None, (str_address, keyLocatorFamily, keyLocatorIndex)
 
-    pri = SigningKey.from_string(pri, curve=SECP256k1)
+    pri = EC_KEY(pri)
     return pri
 
 
@@ -879,7 +879,7 @@ def DeriveNextKey(json):
     #m.keyDescriptor.keyLocator.family = 
     #m.keyDescriptor.keyLocator.index = 
 
-    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx).privkey.get_verifying_key().to_string()
+    m.keyDescriptor.pubKey = pubkFromECKEY(fetchPrivKey(None, 9000, globalIdx))
     globalIdx += 1
 
     msg = json_format.MessageToJson(m)
@@ -898,7 +898,7 @@ def DeriveKey(json):
     m.keyDescriptor.keyLocator.family = family
     m.keyDescriptor.keyLocator.index = index
 
-    m.keyDescriptor.pubKey = fetchPrivKey(None, family, index).privkey.get_verifying_key().to_string()
+    m.keyDescriptor.pubKey = pubkFromECKEY(fetchPrivKey(None, family, index))
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -925,7 +925,10 @@ def ScalarMult(json):
 
     m = rpc_pb2.ScalarMultResponse()
 
-    m.pubKey = SigningKey.from_string(c.digest(), curve=SECP256k1).privkey.get_verifying_key().to_string()
+    m.pubKey = pubkFromECKEY(EC_KEY(c.digest()))
 
     msg = json_format.MessageToJson(m)
     return msg
+
+def pubkFromECKEY(eckey):
+    return MySigningKey.from_secret_exponent(eckey.secret, curve=SECP256k1).get_verifying_key().to_string()
