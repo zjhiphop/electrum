@@ -822,7 +822,7 @@ async def readReqAndReply(obj, writer):
     except BaseException as e:
         traceback.print_exc()
         print("exception while calling method", obj["method"])
-        writer.write(json.dumps({"id":obj["id"],"error": {"code": -32002, "message": str(e)}}).encode("ascii") + b"\n")
+        writer.write(json.dumps({"id":obj["id"],"error": {"code": -32002, "message": traceback.format_exc()}}).encode("ascii") + b"\n")
         await writer.drain()
     else:
         if not found:
