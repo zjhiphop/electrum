@@ -879,7 +879,7 @@ def DeriveNextKey(json):
     #m.keyDescriptor.keyLocator.family = 
     #m.keyDescriptor.keyLocator.index = 
 
-    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx).get_verifying_key().to_string()
+    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx).privkey.get_verifying_key().to_string()
     globalIdx += 1
 
     msg = json_format.MessageToJson(m)
@@ -898,7 +898,7 @@ def DeriveKey(json):
     m.keyDescriptor.keyLocator.family = family
     m.keyDescriptor.keyLocator.index = index
 
-    m.keyDescriptor.pubKey = fetchPrivKey(None, family, index).get_verifying_key().to_string()
+    m.keyDescriptor.pubKey = fetchPrivKey(None, family, index).privkey.get_verifying_key().to_string()
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -925,7 +925,7 @@ def ScalarMult(json):
 
     m = rpc_pb2.ScalarMultResponse()
 
-    m.pubKey = EC_KEY(c.digest()).get_verifying_key().to_string()
+    m.pubKey = EC_KEY(c.digest()).privkey.get_verifying_key().to_string()
 
     msg = json_format.MessageToJson(m)
     return msg
