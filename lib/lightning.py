@@ -538,7 +538,7 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
         ks = keystore.BIP32_KeyStore({})
         der = "m/0'/"
         xtype = 'p2wpkh'
-        ks.add_xprv_from_seed(int.from_bytes(pri, "big"), xtype, der)
+        ks.add_xprv_from_seed(pri, xtype, der)
     elif privKey is not None:
         ks = keystore.BIP32_KeyStore({})
         der = "m/0'/"
@@ -822,7 +822,7 @@ def privKeyForPubKey(pubKey):
         print("ignoring redeem script", redeem_script)
 
     typ, pri, compressed = bitcoin.deserialize_privkey(pri)
-    return EC_KEY(pri.to_bytes(32, "big"))
+    return EC_KEY(pri)
     
     #assert False, "could not find private key for pubkey {} hex={}".format(pubKey, binascii.hexlify(pubKey).decode("ascii"))
 
