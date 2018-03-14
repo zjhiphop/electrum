@@ -14,6 +14,7 @@ from .bitcoin import EC_KEY, MySigningKey
 from ecdsa.curves import SECP256k1
 from . import bitcoin
 from . import transaction
+from . import keystore
 
 import queue
 
@@ -118,30 +119,6 @@ def ListUnspentWitness(json):
         towire.outPoint.index = utxo["prevout_n"]
     return json_format.MessageToJson(m)
 
-
-i = 0
-
-usedAddresses = set()
-
-#def NewRawKey(json):
-#    global i
-#    addresses = WALLET.get_unused_addresses()
-#    res = rpc_pb2.NewRawKeyResponse()
-#    pubk = None
-#    assert len(set(addresses) - usedAddresses) > 0, "used all addresses!"
-#    while pubk is None:
-#      i = i + 1
-#      if i > len(addresses) - 1:
-#          i = 0
-#      # TODO do not reuse keys!!!!!!!!!!!!!!!!
-#      # find out when get_unused_addresses marks an address used...
-#      if addresses[i] not in usedAddresses:
-#        pubk = addresses[i]
-#        usedAddresses.add(pubk)
-#    res.publicKey = bytes(bytearray.fromhex(WALLET.get_public_keys(pubk)[0]))
-#    return json_format.MessageToJson(res)
-
-
 def LockOutpoint(json):
     req = rpc_pb2.LockOutpointRequest()
     json_format.Parse(json, req)
@@ -156,10 +133,7 @@ def UnlockOutpoint(json):
     # throws KeyError if not existing. Use .discard() if we do not care
     locked.remove((req.outpoint.hash, req.outpoint.index))
 
-HEIGHT = None
-
 def ListTransactionDetails(json):
-    global HEIGHT
     global WALLET
     global NETWORK
     m = rpc_pb2.ListTransactionDetailsResponse()
@@ -253,29 +227,7 @@ def SignMessage(json):
     json_format.Parse(json, req)
     m = rpc_pb2.SignMessageResponse()
 
-    address = None
-    for adr in usedAddresses:
-      if req.pubKey == bytes(bytearray.fromhex(WALLET.get_public_keys(adr)[0])):
-        address = adr
-        break
-
-    pri = None
-    if address is None:
-        priv_keys = WALLET.storage.get("lightning_extra_keys", [])
-        print("searching lightning_extra_keys", req.pubKey)
-        for i in priv_keys:
-            assert type(i) is int
-            signkey = EC_KEY(i.to_bytes(32, "big"))
-            pubkeystr = pubkFromECKEY(signkey)
-            print("pubkeystr", pubkeystr)
-            if pubkeystr == req.pubKey:
-                pri = signkey
-        if pri is None:
-            assert False, "could not find private key corresponding to " + repr(req.pubKey)
-    else:
-        pri, _ = WALLET.export_private_key(address, None)
-        typ, pri, compressed = bitcoin.deserialize_privkey(pri)
-        pri = EC_KEY(pri)
+    pri = privKeyForPubKey(req.pubKey)
 
     m.signature = pri.sign(bitcoin.Hash(req.messageToBeSigned), ecdsa.util.sigencode_der)
     m.error = ""
@@ -595,12 +547,12 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
     else:
         ks = WALLET.keystore
 
-    if keyLocatorFamily != 0 or keyLocatorIndex != 0:
+    if keyLocatorFamily is not None or keyLocatorIndex is not None:
         pri = ks.get_private_key([1017, keyLocatorFamily, keyLocatorIndex], password=None)[0]
+        pri = EC_KEY(pri)
+    else:
+        pri = privKey
 
-    assert pri is not None, (str_address, keyLocatorFamily, keyLocatorIndex)
-
-    pri = EC_KEY(pri)
     return pri
 
 
@@ -848,6 +800,32 @@ async def readReqAndReply(obj, writer):
                 writer.write(json.dumps({"id":obj["id"],"result": result}).encode("ascii") + b"\n")
         await writer.drain()
 
+def privKeyForPubKey(pubKey):
+    priv_keys = WALLET.storage.get("lightning_extra_keys", [])
+    for i in priv_keys:
+        candidate = EC_KEY(i.to_bytes(32, "big"))
+        if pubkFromECKEY(candidate) == pubKey:
+            return candidate
+
+    attemptKeyIdx = globalIdx - 1
+    while attemptKeyIdx >= 0:
+      attemptPrivKey = fetchPrivKey(None, 9000, attemptKeyIdx)
+      attempt = pubkFromECKEY(attemptPrivKey)
+      if attempt == pubKey:
+        return attemptPrivKey
+      attemptKeyIdx -= 1
+
+    adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(pubKey).decode("utf-8"))
+    pri, redeem_script = WALLET.export_private_key(adr, None)
+
+    if redeem_script:
+        print("ignoring redeem script", redeem_script)
+
+    typ, pri, compressed = bitcoin.deserialize_privkey(pri)
+    return EC_KEY(pri.to_bytes(32, "big"))
+    
+    #assert False, "could not find private key for pubkey {} hex={}".format(pubKey, binascii.hexlify(pubKey).decode("ascii"))
+
 def derivePrivKey(keyDesc):
     global globalIdx
     keyDescFam = keyDesc.keyLocator.family
@@ -856,18 +834,7 @@ def derivePrivKey(keyDesc):
     privKey = None
 
     if len(keyDescPubKey) != 0:
-       attemptKeyIdx = globalIdx - 1
-       found = False
-       while attemptKeyIdx >= 0:
-         attemptPrivKey = fetchPrivKey(None, 9000, attemptKeyIdx)
-         attempt = pubkFromECKEY(attemptPrivKey)
-         if attempt == keyDescPubKey:
-           found = True
-           privKey = attemptPrivKey
-           break
-         attemptKeyIdx -= 1
-
-       assert found, "could not find private key for pubkey {} hex={}".format(keyDescPubKey, binascii.hexlify(keyDescPubKey).decode("ascii"))
+       privKey = privKeyForPubKey(keyDescPubKey)
 
     return fetchPrivKey(None, keyDescFam, keyDescIdx, privKey)
 
