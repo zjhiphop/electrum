@@ -879,7 +879,7 @@ def DeriveNextKey(json):
     #m.keyDescriptor.keyLocator.family = 
     #m.keyDescriptor.keyLocator.index = 
 
-    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx).secret.to_bytes(32, "big")
+    m.keyDescriptor.pubKey = fetchPrivKey(None, 9000, globalIdx).get_verifying_key().to_string()
     globalIdx += 1
 
     msg = json_format.MessageToJson(m)
