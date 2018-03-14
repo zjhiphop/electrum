@@ -931,4 +931,4 @@ def ScalarMult(json):
     return msg
 
 def pubkFromECKEY(eckey):
-    return eckey.get_public_key(True) #compressed=True
+    return bytes(bytearray.fromhex(eckey.get_public_key(True))) #compressed=True
