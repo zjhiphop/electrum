@@ -858,7 +858,7 @@ def DerivePrivKey(json):
 
     m = rpc_pb2.DerivePrivKeyResponse()
 
-    m.privKey = derivePrivKey(req.keyDescriptor).privkey.secret_multiplier.to_bytes(32, "big")
+    m.privKey = derivePrivKey(req.keyDescriptor).secret.to_bytes(32, "big")
 
     msg = json_format.MessageToJson(m)
     return msg
@@ -918,7 +918,7 @@ def ScalarMult(json):
 
     point = bitcoin.ser_to_point(req.pubKey)
 
-    point = point * privKey.secret_multiplier
+    point = point * privKey.secret
 
     c = hashlib.sha256()
     c.update(bitcoin.point_to_ser(point, True))
