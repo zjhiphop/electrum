@@ -9,9 +9,9 @@ from jsonrpclib import Server
 from google.protobuf import json_format
 import binascii
 import ecdsa.util
-import ecdsa.curves
 import hashlib
-from .bitcoin import EC_KEY
+from ecdsa import SigningKey
+from ecdsa.curves import SECP256k1
 from . import bitcoin
 from . import transaction
 
@@ -265,7 +265,7 @@ def SignMessage(json):
         print("searching lightning_extra_keys", req.pubKey)
         for i in priv_keys:
             assert type(i) is int
-            signkey = MySigningKey.from_secret_exponent(i, curve=ecdsa.curves.SECP256k1)
+            signkey = SigningKey.from_secret_exponent(i, curve=SECP256k1)
             pubkeystr = signkey.get_verifying_key().to_string()
             print("pubkeystr", pubkeystr)
             if pubkeystr == req.pubKey:
@@ -275,7 +275,7 @@ def SignMessage(json):
     else:
         pri, _ = WALLET.export_private_key(address, None)
         typ, pri, compressed = bitcoin.deserialize_privkey(pri)
-        pri = EC_KEY(pri)
+        pri = SigningKey.from_string(pri, curve=SECP256k1)
 
     m.signature = pri.sign(bitcoin.Hash(req.messageToBeSigned), ecdsa.util.sigencode_der)
     m.error = ""
@@ -332,8 +332,8 @@ class InputScript(object):
 def tweakPrivKey(basePriv, commitTweak):
     tweakInt = int.from_bytes(commitTweak, byteorder="big")
     tweakInt += basePriv.secret # D is secret
-    tweakInt %= ecdsa.curves.SECP256k1.generator.order()
-    return EC_KEY(tweakInt.to_bytes(33, 'big')) # TODO find out if 33 bytes are necessary. private keys are usually only 32 bytes
+    tweakInt %= SECP256k1.generator.order()
+    return SigningKey.from_string(tweakInt.to_bytes(32, 'big'), curve=SECP256k1)
 
 def singleTweakBytes(commitPoint, basePoint):
     m = hashlib.sha256()
@@ -354,16 +354,16 @@ def deriveRevocationPrivKey(revokeBasePriv, commitSecret):
     commitHalfPriv = commitTweakInt * commitSecret.secret
 
     revocationPriv = revokeHalfPriv + commitHalfPriv
-    revocationPriv %= ecdsa.curves.SECP256k1.generator.order()
+    revocationPriv %= SECP256k1.generator.order()
 
-    return EC_KEY(revocationPriv.to_bytes(33, byteorder="big")) # TODO find out if 33 bytes are necessary. private keys are usually only 32 bytes
+    return SigningKey.from_string(revocationPriv.to_bytes(32, byteorder="big"), curve=SECP256k1)
 
 
 def maybeTweakPrivKey(signdesc, pri):
     if len(signdesc.singleTweak) > 0:
         pri2 = tweakPrivKey(pri, signdesc.singleTweak)
     elif len(signdesc.doubleTweak) > 0:
-        pri2 = deriveRevocationPrivKey(pri, EC_KEY(signdesc.doubleTweak))
+        pri2 = deriveRevocationPrivKey(pri, SigningKey.from_string(signdesc.doubleTweak, curve=SECP256k1))
     else:
         pri2 = pri
 
@@ -594,7 +594,7 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
 
     assert pri is not None, (str_address, keyLocatorFamily, keyLocatorIndex)
 
-    pri = EC_KEY(pri)
+    pri = SigningKey.from_string(pri, curve=SECP256k1)
     return pri
 
 
@@ -925,7 +925,7 @@ def ScalarMult(json):
 
     m = rpc_pb2.ScalarMultResponse()
 
-    m.pubKey = EC_KEY(c.digest()).privkey.get_verifying_key().to_string()
+    m.pubKey = SigningKey.from_string(c.digest(), curve=SECP256k1).privkey.get_verifying_key().to_string()
 
     msg = json_format.MessageToJson(m)
     return msg
