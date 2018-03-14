@@ -931,4 +931,4 @@ def ScalarMult(json):
     return msg
 
 def pubkFromECKEY(eckey):
-    return MySigningKey.from_secret_exponent(eckey.secret, curve=SECP256k1).get_verifying_key().to_string()
+    return eckey.get_public_key(True) #compressed=True
