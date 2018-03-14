@@ -571,10 +571,11 @@ def ComputeInputScript(json):
     return msg
 
 
-def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
+def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
     pri = None
 
     if str_address is not None:
+        assert privKey is None
         pri, redeem_script = WALLET.export_private_key(str_address, None)
 
         if redeem_script:
@@ -586,6 +587,11 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
         der = "m/0'/"
         xtype = 'p2wpkh'
         ks.add_xprv_from_seed(int.from_bytes(pri, "big"), xtype, der)
+    elif privKey is not None:
+        ks = keystore.BIP32_KeyStore({})
+        der = "m/0'/"
+        xtype = 'p2wpkh'
+        ks.add_xprv_from_seed(privKey.secret.to_bytes(32, 'big'), xtype, der)
     else:
         ks = WALLET.keystore
 
@@ -843,14 +849,27 @@ async def readReqAndReply(obj, writer):
         await writer.drain()
 
 def derivePrivKey(keyDesc):
+    global globalIdx
     keyDescFam = keyDesc.keyLocator.family
     keyDescIdx = keyDesc.keyLocator.index
     keyDescPubKey = keyDesc.pubKey
-    adr = None
+    privKey = None
+
     if len(keyDescPubKey) != 0:
-       adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
-           keyDescPubKey).decode("utf-8"))
-    return fetchPrivKey(adr, keyDescFam, keyDescIdx)
+       attemptKeyIdx = globalIdx - 1
+       found = False
+       while attemptKeyIdx >= 0:
+         attemptPrivKey = fetchPrivKey(None, 9000, attemptKeyIdx)
+         attempt = pubkFromECKEY(attemptPrivKey)
+         if attempt == keyDescPubKey:
+           found = True
+           privKey = attemptPrivKey
+           break
+         attemptKeyIdx -= 1
+
+       assert found, "could not find private key for pubkey {} hex={}".format(keyDescPubKey, binascii.hexlify(keyDescPubKey).decode("ascii"))
+
+    return fetchPrivKey(None, keyDescFam, keyDescIdx, privKey)
 
 def DerivePrivKey(json):
     req = rpc_pb2.DerivePrivKeyRequest()
