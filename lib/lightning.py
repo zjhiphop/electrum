@@ -520,37 +520,28 @@ def ComputeInputScript(json):
     return msg
 
 
-def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
+def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex):
     pri = None
 
     if str_address is not None:
-        assert privKey is None
         pri, redeem_script = WALLET.export_private_key(str_address, None)
 
         if redeem_script:
             print("ignoring redeem script", redeem_script)
 
         typ, pri, compressed = bitcoin.deserialize_privkey(pri)
+        if keyLocatorFamily == 0 and keyLocatorIndex == 0: return EC_KEY(pri)
 
         ks = keystore.BIP32_KeyStore({})
         der = "m/0'/"
         xtype = 'p2wpkh'
         ks.add_xprv_from_seed(pri, xtype, der)
-    elif privKey is not None:
-        ks = keystore.BIP32_KeyStore({})
-        der = "m/0'/"
-        xtype = 'p2wpkh'
-        ks.add_xprv_from_seed(privKey.secret.to_bytes(32, 'big'), xtype, der)
     else:
         ks = WALLET.keystore
-        assert keyLocatorFamily != 0 and keyLocatorIndex != 0
 
-    if keyLocatorFamily != 0 and keyLocatorIndex != 0:
+    if keyLocatorFamily != 0 or keyLocatorIndex != 0:
         pri = ks.get_private_key([1017, keyLocatorFamily, keyLocatorIndex], password=None)[0]
         pri = EC_KEY(pri)
-    else:
-        if privKey is not None:
-            pri = privKey
 
     assert pri is not None
 
@@ -563,8 +554,6 @@ def computeInputScript(tx, signdesc):
     assert typ != bitcoin.TYPE_SCRIPT
 
     assert len(signdesc.keyDescriptor.pubKey) == 0
-    #assert len(signdesc.keyDescriptor.keyLocator.family) != 0
-    #assert len(signdesc.keyDescriptor.keyLocator.index) != 0
     pri = fetchPrivKey(str_address, signdesc.keyDescriptor.keyLocator.family, signdesc.keyDescriptor.keyLocator.index)
 
     isNestedWitness = False  # because NewAddress only does native addresses
@@ -837,9 +826,9 @@ def derivePrivKey(keyDesc):
     privKey = None
 
     if len(keyDescPubKey) != 0:
-        privKey = privKeyForPubKey(keyDescPubKey)
+        return privKeyForPubKey(keyDescPubKey)
 
-    return fetchPrivKey(None, keyDescFam, keyDescIdx, privKey)
+    return fetchPrivKey(None, keyDescFam, keyDescIdx)
 
 def DerivePrivKey(json):
     req = rpc_pb2.DerivePrivKeyRequest()
