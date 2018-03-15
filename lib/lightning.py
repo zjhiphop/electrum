@@ -469,7 +469,7 @@ def SignOutputRaw(json):
 
 
 def signOutputRaw(tx, signDesc):
-    pri = derivePrivKey(signDesc)
+    pri = derivePrivKey(signDesc.keyDescriptor)
     pri2 = maybeTweakPrivKey(signDesc, pri)
     sig = rawTxInWitnessSignature(tx, signDesc.sigHashes, signDesc.inputIndex,
                                   signDesc.output.value, signDesc.witnessScript, sigHashAll, pri2)
@@ -543,7 +543,7 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
     else:
         ks = WALLET.keystore
 
-    if keyLocatorFamily is not None or keyLocatorIndex is not None:
+    if keyLocatorFamily != 0 or keyLocatorIndex != 0:
         pri = ks.get_private_key([1017, keyLocatorFamily, keyLocatorIndex], password=None)[0]
         pri = EC_KEY(pri)
     else:
