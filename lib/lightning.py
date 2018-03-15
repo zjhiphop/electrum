@@ -470,7 +470,7 @@ def SignOutputRaw(json):
 
 def signOutputRaw(tx, signDesc):
     adr = None
-    if len(signDesc.pubKey) != 0:
+    if len(signDesc.keyDescriptor.pubKey) != 0:
        adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
            signDesc.keyDescriptor.pubKey).decode("utf-8"))  # Because this is all NewAddress supports
     pri = fetchPrivKey(adr, signDesc.keyDescriptor.keyLocator.family, signDesc.keyDescriptor.keyLocator.index)
