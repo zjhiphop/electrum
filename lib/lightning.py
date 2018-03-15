@@ -469,11 +469,7 @@ def SignOutputRaw(json):
 
 
 def signOutputRaw(tx, signDesc):
-    adr = None
-    if len(signDesc.keyDescriptor.pubKey) != 0:
-       adr = bitcoin.pubkey_to_address('p2wpkh', binascii.hexlify(
-           signDesc.keyDescriptor.pubKey).decode("utf-8"))  # Because this is all NewAddress supports
-    pri = fetchPrivKey(adr, signDesc.keyDescriptor.keyLocator.family, signDesc.keyDescriptor.keyLocator.index)
+    pri = derivePrivKey(signDesc)
     pri2 = maybeTweakPrivKey(signDesc, pri)
     sig = rawTxInWitnessSignature(tx, signDesc.sigHashes, signDesc.inputIndex,
                                   signDesc.output.value, signDesc.witnessScript, sigHashAll, pri2)
@@ -801,6 +797,7 @@ async def readReqAndReply(obj, writer):
         await writer.drain()
 
 def privKeyForPubKey(pubKey):
+    global globalIdx
     priv_keys = WALLET.storage.get("lightning_extra_keys", [])
     for i in priv_keys:
         candidate = EC_KEY(i.to_bytes(32, "big"))
@@ -827,7 +824,6 @@ def privKeyForPubKey(pubKey):
     #assert False, "could not find private key for pubkey {} hex={}".format(pubKey, binascii.hexlify(pubKey).decode("ascii"))
 
 def derivePrivKey(keyDesc):
-    global globalIdx
     keyDescFam = keyDesc.keyLocator.family
     keyDescIdx = keyDesc.keyLocator.index
     keyDescPubKey = keyDesc.pubKey
