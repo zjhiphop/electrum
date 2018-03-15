@@ -543,13 +543,16 @@ def fetchPrivKey(str_address, keyLocatorFamily, keyLocatorIndex, privKey=None):
         ks.add_xprv_from_seed(privKey.secret.to_bytes(32, 'big'), xtype, der)
     else:
         ks = WALLET.keystore
-        assert keyLocatorFamily is not None and keyLocatorIndex is not None
+        assert keyLocatorFamily != 0 and keyLocatorIndex != 0
 
-    if keyLocatorFamily is not None and keyLocatorIndex is not None:
+    if keyLocatorFamily != 0 and keyLocatorIndex != 0:
         pri = ks.get_private_key([1017, keyLocatorFamily, keyLocatorIndex], password=None)[0]
         pri = EC_KEY(pri)
     else:
-        pri = privKey
+        if privKey is not None:
+            pri = privKey
+
+    assert pri is not None
 
     return pri
 
@@ -560,7 +563,9 @@ def computeInputScript(tx, signdesc):
     assert typ != bitcoin.TYPE_SCRIPT
 
     assert len(signdesc.keyDescriptor.pubKey) == 0
-    pri = fetchPrivKey(str_address, None, None)
+    #assert len(signdesc.keyDescriptor.keyLocator.family) != 0
+    #assert len(signdesc.keyDescriptor.keyLocator.index) != 0
+    pri = fetchPrivKey(str_address, signdesc.keyDescriptor.keyLocator.family, signdesc.keyDescriptor.keyLocator.index)
 
     isNestedWitness = False  # because NewAddress only does native addresses
 
@@ -833,8 +838,6 @@ def derivePrivKey(keyDesc):
 
     if len(keyDescPubKey) != 0:
         privKey = privKeyForPubKey(keyDescPubKey)
-        if keyDescFam == 0: keyDescFam = None
-        if keyDescIdx == 0: keyDescIdx = None
 
     return fetchPrivKey(None, keyDescFam, keyDescIdx, privKey)
 
