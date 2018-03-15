@@ -828,15 +828,13 @@ def privKeyForPubKey(pubKey):
 def derivePrivKey(keyDesc):
     keyDescFam = keyDesc.keyLocator.family
     keyDescIdx = keyDesc.keyLocator.index
-    if keyDescFam == 0: keyDescFam = None
-    if keyDescIdx == 0: keyDescIdx = None
     keyDescPubKey = keyDesc.pubKey
     privKey = None
 
     if len(keyDescPubKey) != 0:
         privKey = privKeyForPubKey(keyDescPubKey)
-    else:
-        assert keyDescFam is not None and keyDescIdx is not None
+        if keyDescFam == 0: keyDescFam = None
+        if keyDescIdx == 0: keyDescIdx = None
 
     return fetchPrivKey(None, keyDescFam, keyDescIdx, privKey)
 
