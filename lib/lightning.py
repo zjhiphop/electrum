@@ -903,7 +903,7 @@ def ScalarMult(json):
 
     m = rpc_pb2.ScalarMultResponse()
 
-    m.pubKey = pubkFromECKEY(EC_KEY(c.digest()))
+    m.hashResult = c.digest()
 
     msg = json_format.MessageToJson(m)
     return msg
