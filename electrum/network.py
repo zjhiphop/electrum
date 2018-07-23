@@ -667,7 +667,7 @@ class Network(util.DaemonThread):
                 self.print_error("relayfee", self.relay_fee)
         elif method == 'blockchain.block.headers':
             self.on_block_headers(interface, response)
-        elif method == 'blockchain.block.get_header':
+        elif method == 'blockchain.block.header':
             self.on_get_header(interface, response)
 
         for callback in callbacks:
@@ -807,7 +807,7 @@ class Network(util.DaemonThread):
         # server.version should be the first message
         params = [ELECTRUM_VERSION, PROTOCOL_VERSION]
         self.queue_request('server.version', params, interface)
-        self.queue_request('blockchain.headers.subscribe', [True], interface)
+        self.queue_request('blockchain.headers.subscribe', [], interface)
         if server == self.default_server:
             self.switch_to_interface(server)
         #self.notify('interfaces')
@@ -879,6 +879,7 @@ class Network(util.DaemonThread):
         blockchain = interface.blockchain
         if result is None or params is None or error is not None:
             interface.print_error(error or 'bad response')
+            self.connection_down(interface.server)
             return
         # Ignore unsolicited chunks
         height = params[0]
@@ -909,12 +910,21 @@ class Network(util.DaemonThread):
 
     def on_get_header(self, interface, response):
         '''Handle receiving a single block header'''
-        header = response.get('result')
-        if not header:
-            interface.print_error(response)
+        error = response.get('error')
+        result = response.get('result')
+        params = response.get('params')
+        if result is None or params is None or error is not None:
+            interface.print_error(error or 'bad response')
             self.connection_down(interface.server)
             return
-        height = header.get('block_height')
+        header_hex = result
+        height = params[0]
+        try:
+            header = blockchain.deserialize_header(util.bfh(header_hex), height)
+        except InvalidHeader as e:
+            interface.print_error(str(e))
+            self.connection_down(interface.server)
+            return
         #interface.print_error('got header', height, blockchain.hash_header(header))
         if interface.request != height:
             interface.print_error("unsolicited header",interface.request, height)
@@ -1232,7 +1242,7 @@ class Network(util.DaemonThread):
         invocation(callback)
 
     def request_header(self, interface, height):
-        self.queue_request('blockchain.block.get_header', [height], interface)
+        self.queue_request('blockchain.block.header', [height], interface)
         interface.request = height
         interface.req_time = time.time()
 
@@ -1306,6 +1316,12 @@ class Network(util.DaemonThread):
     def get_merkle_for_transaction(self, tx_hash, tx_height, callback=None):
         command = 'blockchain.transaction.get_merkle'
         invocation = lambda c: self.send([(command, [tx_hash, tx_height])], c)
+
+        return Network.__with_default_synchronous_callback(invocation, callback)
+
+    def get_txid_from_txpos(self, tx_height, tx_pos, merkle, callback=None):
+        command = 'blockchain.transaction.id_from_pos'
+        invocation = lambda c: self.send([(command, [tx_height, tx_pos, merkle])], c)
 
         return Network.__with_default_synchronous_callback(invocation, callback)
 
