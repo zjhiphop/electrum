@@ -253,7 +253,7 @@ class Network(util.DaemonThread):
         self.futures = []
         # lightning network
         self.lightning_nodes = {}
-        self.channel_db = lnrouter.ChannelDB()
+        self.channel_db = lnrouter.ChannelDB(self)
         self.path_finder = lnrouter.LNPathFinder(self.channel_db)
         self.lnwatcher = lnwatcher.LNWatcher(self)
 
@@ -1120,6 +1120,7 @@ class Network(util.DaemonThread):
         except:
             pass
         self.stop_network()
+        self.channel_db.save_data()
         self.on_stop()
 
     def on_notify_header(self, interface, header_dict):
