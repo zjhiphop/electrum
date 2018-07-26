@@ -33,14 +33,13 @@ import threading
 import socket
 import json
 import sys
-import ipaddress
 
 import dns
 import dns.resolver
 import socks
 
 from . import util
-from .util import print_error
+from .util import print_error, is_ip_address
 from . import bitcoin
 from .bitcoin import COIN
 from . import constants
@@ -252,7 +251,6 @@ class Network(util.DaemonThread):
         asyncio.set_event_loop(self.asyncio_loop) # must be called from main thread
         self.futures = []
         # lightning network
-        self.lightning_nodes = {}
         self.channel_db = lnrouter.ChannelDB(self)
         self.path_finder = lnrouter.LNPathFinder(self.channel_db)
         self.lnwatcher = lnwatcher.LNWatcher(self)
@@ -481,11 +479,8 @@ class Network(util.DaemonThread):
     @staticmethod
     def _fast_getaddrinfo(host, *args, **kwargs):
         def needs_dns_resolving(host2):
-            try:
-                ipaddress.ip_address(host2)
-                return False  # already valid IP
-            except ValueError:
-                pass  # not an IP
+            if is_ip_address(host2):
+                return False
             if str(host) in ('localhost', 'localhost.',):
                 return False
             return True
