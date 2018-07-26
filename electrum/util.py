@@ -31,6 +31,8 @@ import urllib
 import threading
 import hmac
 import stat
+from typing import Union, Sequence
+import ipaddress
 
 from .i18n import _
 
@@ -914,3 +916,20 @@ def make_dir(path, allow_symlink=True):
             raise Exception('Dangling link: ' + path)
         os.mkdir(path)
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+
+def is_ip_address(x: Union[str, bytes]) -> bool:
+    if isinstance(x, bytes):
+        x = x.decode("utf-8")
+    try:
+        ipaddress.ip_address(x)
+        return True
+    except ValueError:
+        return False
+
+
+def list_enabled_bits(x: int) -> Sequence[int]:
+    """e.g. 77 (0b1001101) --> (0, 2, 3, 6)"""
+    binary = bin(x)[2:]
+    rev_bin = reversed(binary)
+    return tuple(i for i, b in enumerate(rev_bin) if b == '1')
